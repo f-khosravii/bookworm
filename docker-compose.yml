@@ -1,0 +1,79 @@
+version: '3'
+
+networks:
+  bookworm:
+
+services:
+  nginx:
+    image: nginx:stable-alpine
+    container_name: bookworm-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - bookworm
+
+
+  mysql:
+    image: mysql:8
+    container_name: bookworm-mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: bookworm
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: admin
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - bookworm
+
+
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookworm-php
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - "9000:9000"
+    networks:
+      - bookworm
+
+
+  composer:
+    image: composer:latest
+    container_name: bookworm-composer
+    volumes:
+      - ./src:/var/www/html
+    working_dir: /var/www/html
+    depends_on:
+      - php
+    networks:
+      - bookworm
+
+
+  artisan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bookworm-artisan
+    volumes:
+      - ./src:/var/www/html
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    entrypoint: ['php', '/var/www/html/artisan']
+    networks:
+      - bookworm
